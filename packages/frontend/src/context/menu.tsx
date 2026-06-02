@@ -1,8 +1,14 @@
-'use client';
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+} from 'react';
 import { useMode } from './mode';
 import { MENU_IDS, type MenuId } from '../../../core/src/utils/fieldMeta';
+import { useStatus } from './status';
+import { useUserData } from './userData';
 
 const VALID_MENUS = MENU_IDS;
 
@@ -30,12 +36,25 @@ const MenuContext = createContext<MenuContextType>({
 
 export function MenuProvider({ children }: { children: React.ReactNode }) {
   const { mode } = useMode();
-  const menus: MenuId[] = (VALID_MENUS as readonly MenuId[]).filter((menu) => {
+
+  const { status } = useStatus();
+  const user = useUserData();
+  const statsAvailable =
+    status?.settings.userAnalyticsEnabled === true &&
+    Boolean(user.uuid && user.password);
+
+  const menus = useMemo(() => {
+    let availableMenus = VALID_MENUS as readonly MenuId[];
     if (mode === 'noob') {
-      return !PRO_ONLY_MENUS.includes(menu);
+      availableMenus = availableMenus.filter(
+        (menu) => !PRO_ONLY_MENUS.includes(menu)
+      );
     }
-    return true;
-  });
+    if (!statsAvailable) {
+      availableMenus = availableMenus.filter((menu) => menu !== 'stats');
+    }
+    return availableMenus;
+  }, [mode, statsAvailable]);
 
   // Get initial menu from URL or default to 'about'
   const initialMenu = (() => {

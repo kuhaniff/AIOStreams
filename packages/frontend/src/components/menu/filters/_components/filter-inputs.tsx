@@ -1,4 +1,3 @@
-'use client';
 import { ReactNode, useCallback, useRef } from 'react';
 import { useDisclosure } from '@/hooks/disclosure';
 import { toast } from 'sonner';
@@ -8,6 +7,7 @@ import { TextInput } from '../../../ui/text-input';
 import { NumberInput } from '../../../ui/number-input';
 import { Tooltip } from '../../../ui/tooltip';
 import { Checkbox } from '../../../ui/checkbox';
+import { cn } from '../../../ui/core/styling';
 import { SettingsCard } from '../../../shared/settings-card';
 import { ImportModal } from '../../../shared/import-modal';
 import { SyncedUrlInputs, type SyncConfig } from './synced-patterns';
@@ -104,17 +104,24 @@ function PlaceholderRow<T>({
   );
 
   return (
-    <div className="flex gap-2 items-end">
+    <div
+      className={cn(
+        'grid gap-2 items-end w-full',
+        iconPosition !== 'inside'
+          ? 'grid-cols-[auto_minmax(0,1fr)_auto]'
+          : 'grid-cols-[minmax(0,1fr)_auto]'
+      )}
+    >
       {iconPosition !== 'inside' && (
         <div className="flex items-center pb-2">{linkButton}</div>
       )}
-      <div className="flex-1 relative w-full space-y-1">
+      <div className="relative space-y-1 min-w-0">
         <label className="text-base w-fit font-semibold self-start">
           Synced URL
         </label>
-        <div className="flex items-center gap-2 w-full rounded-[--radius] bg-[--paper] border border-[--border] shadow-sm h-10 px-3 opacity-75">
+        <div className="flex items-center gap-2 w-full rounded-[--radius] bg-[--paper] border border-[--border] shadow-sm h-10 px-3 opacity-75 overflow-hidden">
           {iconPosition === 'inside' && linkButton}
-          <span className="text-sm text-[--muted] font-mono break-all leading-snug py-1">
+          <span className="text-sm text-[--muted] font-mono truncate min-w-0 flex-1">
             {url}
           </span>
         </div>

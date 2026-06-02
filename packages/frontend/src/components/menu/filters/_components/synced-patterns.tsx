@@ -1,4 +1,3 @@
-'use client';
 import { useEffect, useState } from 'react';
 import { useUserData } from '@/context/userData';
 import { useStatus } from '@/context/status';
@@ -30,19 +29,22 @@ import {
 
 // Helpers
 
-/**
- * Extract ALL names from block comments, including #-prefixed ones.
- * Used for override tracking to make each expression's name unique.
- */
-function extractAllNamesFromExpression(
-  expression: string
+function extractNamesFromExpression(
+  expression: string,
+  ignoreHashPrefixed = true
 ): string[] | undefined {
   const regex = /\/\*\s*(.*?)\s*\*\//g;
   const names: string[] = [];
   let match;
   while ((match = regex.exec(expression)) !== null) {
     const content = match[1];
-    names.push(content.startsWith('#') ? content.slice(1).trim() : content);
+    if (content.startsWith('#')) {
+      if (!ignoreHashPrefixed) {
+        names.push(content.slice(1).trim());
+      }
+    } else {
+      names.push(content);
+    }
   }
   return names.length > 0 ? names : undefined;
 }
@@ -166,7 +168,7 @@ export function SyncedPatterns({
 
         // For SEL items, extract names from expression comments
         const extractedNames = isSel
-          ? extractAllNamesFromExpression(patternStr)
+          ? extractNamesFromExpression(patternStr, false)
           : undefined;
 
         const matchesOverride = (o: any) => {

@@ -1,11 +1,5 @@
-'use client';
-import React, {
-  useState,
-  useMemo,
-  useEffect,
-  useRef,
-  useCallback,
-} from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { CatalogModification } from '@aiostreams/core';
 import { PageWrapper } from '../../shared/page-wrapper';
 import { useStatus } from '@/context/status';
@@ -52,18 +46,10 @@ function Content() {
   const { isInherited, hasParent } = useParentInheritance();
   const [page, setPage] = useState<'installed' | 'marketplace'>('installed');
   const { tab: installedTab, setTab: setInstalledTab } = useSubTab('addons');
-  const [catalogLoading, setCatalogLoading] = useState(false);
-
-  const userDataRef = useRef(userData);
-  useEffect(() => {
-    userDataRef.current = userData;
-  });
-
-  const fetchCatalogsData = useCallback(async (hideToast = false) => {
-    const userData = userDataRef.current;
-    setCatalogLoading(true);
-    try {
-      const catalogs = await fetchCatalogs(userData);
+  const { mutate: fetchCatalogsData, isPending: catalogLoading } = useMutation({
+    mutationFn: (currentUserData: typeof userData) =>
+      fetchCatalogs(currentUserData),
+    onSuccess: (catalogs, currentUserData) => {
       setUserData((prev) => {
         const existingMods = prev.catalogModifications || [];
         const existingIds = new Set(
@@ -94,9 +80,9 @@ function Content() {
               enabled: true,
               shuffle: false,
               usePosterService: !!(
-                userData.rpdbApiKey ||
-                userData.topPosterApiKey ||
-                userData.aioratingsApiKey
+                currentUserData.rpdbApiKey ||
+                currentUserData.topPosterApiKey ||
+                currentUserData.aioratingsApiKey
               ),
               hideable: catalog.hideable,
               searchable: catalog.searchable,
@@ -105,29 +91,43 @@ function Content() {
           }
         });
         const newCatalogIds = new Set(catalogs.map((c) => `${c.id}-${c.type}`));
+        const mergedCatalogIds = new Set(
+          (prev.mergedCatalogs || []).map((mc) => mc.id)
+        );
         const filteredMods = modifications.filter(
           (mod) =>
-            mod.id.startsWith('aiostreams.merged.') ||
+            (mod.id.startsWith('aiostreams.merged.') &&
+              mergedCatalogIds.has(mod.id)) ||
             newCatalogIds.has(`${mod.id}-${mod.type}`)
         );
         return { ...prev, catalogModifications: filteredMods };
       });
-      if (!hideToast) toast.success('Catalogs fetched successfully');
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error fetching catalogs:', error);
       if (error instanceof APIError) {
         toast.error((error as APIError).message);
       } else {
         toast.error('Failed to fetch catalogs');
       }
-    } finally {
-      setCatalogLoading(false);
-    }
-  }, []);
+    },
+  });
 
-  // Initial catalog fetch - fires once when the menu mounts.
+  const refreshCatalogs = useCallback(
+    (hideToast = false) => {
+      fetchCatalogsData(userData, {
+        onSuccess: hideToast
+          ? undefined
+          : () => toast.success('Catalogs fetched successfully'),
+      });
+    },
+    [fetchCatalogsData, userData]
+  );
+
+  // Initial catalog fetch — fires once when the menu mounts.
   useEffect(() => {
-    fetchCatalogsData(true);
+    fetchCatalogsData(userData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [search, setSearch] = useState('');
@@ -345,7 +345,9 @@ function Content() {
               <div>
                 <div className="flex items-center gap-2">
                   <h2>Installed</h2>
-                  {hasParent && isInherited('presets') && <InheritedBadge section="presets" />}
+                  {hasParent && isInherited('presets') && (
+                    <InheritedBadge section="presets" />
+                  )}
                 </div>
                 <p className="text-[--muted] text-sm">
                   Manage your installed addons and catalog settings.
@@ -385,7 +387,7 @@ function Content() {
                           <>
                             <CatalogSettingsCard
                               loading={catalogLoading}
-                              fetchCatalogsData={fetchCatalogsData}
+                              fetchCatalogsData={refreshCatalogs}
                             />
                             <MergedCatalogsCard />
                           </>
